@@ -5,6 +5,7 @@ from vk_api.utils import get_random_id
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 import threading
 import json
+import ast
 import sys
 from halran import *
 import youtube_api
@@ -49,7 +50,7 @@ def check_win_toe(arr):
     if "".join(arr[0][:3]) == "xxx" or "".join(arr[1][:3]) == "xxx" or "".join(arr[2][:3]) == "xxx" or "".join(list_gets(arr,0)) == "xxx" or "".join(list_gets(arr,1)) == "xxx" or "".join(list_gets(arr,2)) == "xxx" or "".join(list_diagonale_gets(arr,False)) == "xxx" or "".join(list_diagonale_gets(arr,True)) == "xxx":
         out = True
         player = "p1"
-    elif "".join(arr[0][:3]) == "yyy" or "".join(arr[1][:3]) == "yyy" or "".join(arr[2][:3]) == "yyy" or "".join(list_gets(arr,0)) == "yyy" or "".join(list_gets(arr,1)) == "yyy" or "".join(list_gets(arr,2)) == "yyy" or "".join(list_diagonale_gets(arr,False)) == "yyy" or "".join(list_diagonale_gets(arr,True)) == "yyy":
+    elif "".join(arr[0][:3]) == "ooo" or "".join(arr[1][:3]) == "ooo" or "".join(arr[2][:3]) == "ooo" or "".join(list_gets(arr,0)) == "ooo" or "".join(list_gets(arr,1)) == "ooo" or "".join(list_gets(arr,2)) == "ooo" or "".join(list_diagonale_gets(arr,False)) == "ooo" or "".join(list_diagonale_gets(arr,True)) == "ooo":
         out = True
         player = "p2"
     return (out,player)
@@ -72,6 +73,8 @@ def get_info():
                 f["keyboard"] = g.split(".")[1]
             elif g.split(".")[0] == "mute":
                 f["mute"] = g.split(".")[1].split(",")
+            elif g.split(".")[0] == "users":
+                f["users"] = ast.literal_eval(g.split(".")[1])
             else:
                 f[g.split(".")[0]] = g.split(".")[1]
         out[args[0]] = f
@@ -121,13 +124,12 @@ def f():
                     'message': "Последнее видео Marco Ghislanzoni - "+ youtube.get_last_video(ue4_blogers[0]),
                     'keyboard': keyboard
                 })
-            else:
-                vk.method("messages.send",{
-                    'peer_id': i,
-                    'random_id': get_random_id(),
-                    'message': "А вы знали, что " + random.randelem(facts),
-                    'keyboard': keyboard
-                })
+            vk.method("messages.send",{
+                'peer_id': i,
+                'random_id': get_random_id(),
+                'message': "А вы знали, что " + random.randelem(facts),
+                'keyboard': keyboard
+            })
     else:
         for i in info_chats.keys():
             keyboard = VkKeyboard(one_time=False)
@@ -144,13 +146,13 @@ def f():
                 keyboard.add_button("!настройки",color=VkKeyboardColor.SECONDARY)
             keyboard = keyboard.get_keyboard()
             info_chats[i]["keyboard"] = keyboard
-                
-            vk.method("messages.send",{
-                'peer_id': i,
-                'random_id': get_random_id(),
-                'message': greeting,
-                'keyboard': info_chats[i]["keyboard"]
-            })
+            if info_chats[i]["greeting?"] == "t":
+                vk.method("messages.send",{
+                    'peer_id': i,
+                    'random_id': get_random_id(),
+                    'message': greeting,
+                    'keyboard': info_chats[i]["keyboard"]
+                })
         start = False
 
 threading.Thread(target=f).start()
@@ -192,7 +194,14 @@ for event in longpoll.listen():
             keyboard.add_button("!покажи документацию",color=VkKeyboardColor.NEGATIVE)
             keyboard.add_button("!настройки",color=VkKeyboardColor.PRIMARY)
             keyboard = keyboard.get_keyboard()
-            info_chats[str(event.obj["message"]["peer_id"])] = {"ue4":"f","mute":["infactshal"],"keyboard":keyboard}
+            users = vk.method("messages.getConversationMembers",{
+                'peer_id': event.obj['message']['peer_id']
+            })
+            users_dict = {}
+            for user in users['items']:
+                if user ['member_id'] > 0:
+                    users_dict[str(user['member_id'])] = {'awards':[],'money':100}
+            info_chats[str(event.obj["message"]["peer_id"])] = {"ue4":"f","mute":["infactshal"],"greeting?":"t","keyboard":keyboard,'users':users_dict}
             save_info()
             vk.method("messages.send", {
                 'peer_id': event.obj["message"]["peer_id"],
@@ -200,7 +209,7 @@ for event in longpoll.listen():
                 'message': 'Вот мои команды - https://botgirafik.peopletok.ru/commands.php',
                 'keyboard': keyboard
             })
-            
+        
         if str(event.obj["message"]["peer_id"]) not in info_chats.keys():
             keyboard = VkKeyboard(one_time=False)
             keyboard.add_button("!start",color=VkKeyboardColor.POSITIVE)
@@ -216,7 +225,6 @@ for event in longpoll.listen():
         if str(event.obj["message"]["peer_id"]) in info_chats.keys():
             if str(id_user) not in info_chats[str(event.obj["message"]["peer_id"])]["mute"]:
                 keyboard = info_chats[str(event.obj["message"]["peer_id"])]["keyboard"]
-
                 if event.obj["message"]["text"].startswith("!скажи факт"):
                     if len(event.obj["message"]["text"].split(" ")) == 3 and int(event.obj["message"]["text"].split("!скажи факт")[1]) < len(facts):
                         vk.method("messages.send",{
@@ -309,6 +317,7 @@ for event in longpoll.listen():
                     o = ""
                     try:
                         coord = (int(event.obj["message"]["text"].split("-")[0])-1,int(event.obj["message"]["text"].split("-")[1])-1)
+                        isDraw = True
                         if tok[str(event.obj["message"]["peer_id"])]["round"] == "1" and user == tok[str(event.obj["message"]["peer_id"])]["p1"]:
                             if tok[str(event.obj["message"]["peer_id"])]["tok"][coord[0]][coord[1]] == " ":
                                 tok[str(event.obj["message"]["peer_id"])]["tok"][coord[0]][coord[1]] = "x"
@@ -331,10 +340,15 @@ for event in longpoll.listen():
                                     out = "❌"
                                 elif k == "o":
                                     out = "🅾️"
+                                else:
+                                    isDraw = False
                                     
                                 ou += f"{out}|"
                             ou = ou[:-1]
                             o += ou+"\n"
+
+                        if isDraw:
+                            o += "Ничья :-(\n"
                         
                         checkwintoe = check_win_toe(tok[str(event.obj["message"]["peer_id"])]["tok"])
                         if checkwintoe[1] == "p1":
@@ -350,6 +364,9 @@ for event in longpoll.listen():
                             'keyboard': keyboard
                         })
                         if checkwintoe[0]:
+                            del tok[str(event.obj["message"]["peer_id"])]
+
+                        elif isDraw:
                             del tok[str(event.obj["message"]["peer_id"])]
                     except:
                         pass
@@ -380,20 +397,124 @@ for event in longpoll.listen():
                     else:
                         ue4 = info_chats[str(event.obj["message"]["peer_id"])]["ue4"]
                         mute = ",".join(info_chats[str(event.obj["message"]["peer_id"])]["mute"])
+                        greeting = info_chats[str(event.obj["message"]["peer_id"])]["greeting?"]
                         vk.method("messages.send",{
                             'peer_id': event.obj["message"]["peer_id"],
                             'random_id': get_random_id(),
                             'message': f"""Настройки
 ue4={ue4},
-mute={mute}""",
+mute={mute}
+greeting?={greeting}""",
                         'keyboard': keyboard
                     })
-
                 if event.obj["message"]["text"].startswith("!новости ue4"):
                     vk.method("messages.send",{
                         'peer_id': event.obj["message"]["peer_id"],
                         'random_id': get_random_id(),
                         'message': "Последнее видео Marco Ghislanzoni - https://youtube.com/watch?v="+ youtube.get_last_video(ue4_blogers[0]),
+                        'keyboard': keyboard
+                    })
+
+                if event.obj['message']['text'].startswith('!больше-меньше'):
+                    info = event.obj['message']['text'].split(" ")
+                    if len(info) == 1:
+                        vk.method("messages.send",{
+                            'peer_id': event.obj["message"]["peer_id"],
+                            'random_id': get_random_id(),
+                            'message': "Напишите !больше-меньше {больше или меньше} {дополнительно ставка}. Больше 99999 или меньше 100000 :-)",
+                            'keyboard': keyboard
+                        })
+                    elif len(info) == 2:
+                        random_num = random.randint(0,199999,1)
+                        result = ""
+                        if random_num > 99999:
+                            if info[1] == "больше":
+                                result = "Правильно!"
+                            else:
+                                result = "Неправильно!"
+                        elif random_num < 100000:
+                            if info[1] == "меньше":
+                                result = "Правильно!"
+                            else:
+                                result = "Неправильно!"
+                        vk.method("messages.send",{
+                            'peer_id': event.obj["message"]["peer_id"],
+                            'random_id': get_random_id(),
+                            'message': f"{result} число - {random_num}",
+                            'keyboard': keyboard
+                        })
+                    
+                    elif len(info) == 3:
+                        random_num = random.randint(0,199999,1)
+                        money = int(info[2])
+                        result = ""
+                        curMoney = int(info_chats[str(event.obj['message']['peer_id'])]['users'][str(event.obj['message']['from_id'])]['money'])
+                        if curMoney >= money:
+                            if random_num > 99999:
+                                if info[1] == "больше":
+                                    result = f"Правильно! +{money},"
+                                    info_chats[str(event.obj['message']['peer_id'])]['users'][str(event.obj['message']['from_id'])]['money'] = curMoney + money
+                                else:
+                                    result = f"Неправильно!"
+                                    info_chats[str(event.obj['message']['peer_id'])]['users'][str(event.obj['message']['from_id'])]['money'] = curMoney - money
+                            elif random_num < 100000:
+                                if info[1] == "меньше":
+                                    result = f"Правильно! +{money},"
+                                    info_chats[str(event.obj['message']['peer_id'])]['users'][str(event.obj['message']['from_id'])]['money'] = curMoney + money
+                                else:
+                                    info_chats[str(event.obj['message']['peer_id'])]['users'][str(event.obj['message']['from_id'])]['money'] = curMoney - money
+                                    result = f"Неправильно!"
+                            vk.method("messages.send",{
+                                'peer_id': event.obj["message"]["peer_id"],
+                                'random_id': get_random_id(),
+                                'message': f"{result} число - {random_num}",
+                                'keyboard': keyboard
+                            })
+                        else:
+                            vk.method("messages.send",{
+                                'peer_id': event.obj["message"]["peer_id"],
+                                'random_id': get_random_id(),
+                                'message': f"У вас недостаточно монет. У вас {curMoney}, а нужно {money}",
+                                'keyboard': keyboard
+                            })
+
+                if event.obj["message"]["text"].startswith("!инфо"):
+                    info = event.obj["message"]["text"].split(" ")
+                    if len(info) == 1:
+                        vk.method("messages.send",{
+                            'peer_id': event.obj["message"]["peer_id"],
+                            'random_id': get_random_id(),
+                            'message': "Пользователи: "+str(info_chats[str(event.obj['message']['peer_id'])]['users']),
+                            'keyboard': keyboard
+                        })
+
+                    elif len(info) == 2:
+                        user = info[1].split("id")
+                        if len(user) > 1:
+                            user = user[1].split("|")[0]
+                            user_name = info[1].split("|")[1].split("]")[0]
+                            user_info = info_chats[str(event.obj['message']['peer_id'])]['users'][user]
+                            money = user_info['money']
+                            awards = ", ".join(user_info["awards"])
+                            if len(user_info['awards']) > 0:
+                                awards = f"Награды: {awards}\n"
+                            vk.method("messages.send",{
+                                'peer_id': event.obj["message"]["peer_id"],
+                                'random_id': get_random_id(),
+                                'message': f"Пользователь {user_name}:\n{awards}Монет: {money}",
+                                'keyboard': keyboard
+                            })
+
+                if event.obj['message']['text'].startswith('!наградить'):
+                    user = event.obj['message']['text'].split('!наградить ')[1].split(' ')[0]
+                    award_name = event.obj['message']['text'].split(user+" ")[1]
+                    user_name = user.split("|")[1].split("]")[0]
+                    user_id = user.split("id")[1].split("|")[0]
+                    info_chats[str(event.obj['message']['peer_id'])]['users'][user_id]['awards'].append(award_name)
+                    vk.method("messages.send",{
+                        'peer_id': event.obj["message"]["peer_id"],
+                        'random_id': get_random_id(),
+                        'message': f'{user_name} получил награду "{award_name}" :-)',
                         'keyboard': keyboard
                     })
 
@@ -468,7 +589,7 @@ mute={mute}""",
                             'random_id': get_random_id(),
                             'message': str(random.randint(start,end,1,difficult=random.randint(0,5,1)))+f" - рандомное число от {start} до {end}, с шагом 1 :)",
                             'keyboard': keyboard
-                        })
+                        })    
                     elif len(info) == 4:
                         if len(info[1].split(".")) > 1:
                             start = float(info[1])
